@@ -1,0 +1,16 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+functions:
+  issues-bot:
+    lang: golang-middleware
+    handler: ./issues-bot
+    image: devopps/issues-bot:latest # change it with your docker id
+    build_args:
+      GO111MODULE: on
+    secrets:
+      - webhook-secret # your secret goes here
+    environment:
+      APP_ID: "" #your app id goes here
+      PRIVATE_KEY_FILE: "" # "issues-bot-faas.2020-12-12.private-key.pem"

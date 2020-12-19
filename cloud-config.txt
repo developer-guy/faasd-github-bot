@@ -1,0 +1,29 @@
+#cloud-config
+ssh_authorized_keys:
+## Note: Replace with your own public key
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDS+VMakLtFiuFwj6estRbxnuE/0qx6Yl65hv0wk388Iz33NJ27vq9IZbQ93qAkUdKoYHk5DewuYbotS6Kn/GFfuMQjJeFN9Oas1S0h6rXqF0kZR5ZSf34VYF9ZGFxPvkBBzspfezSJhwKUSq3KgMOghOyCEJRr+nn/qvOEfqkhNvlHEjOxAP6XkVTHcYxaVPn38ua4Oi2FjiKgXMJq0gRpZjAdKy0zHoU74Zl8cy6HCBEFhN0gKWp5MCIKlaDmIQjraIhoC8ELAEyzmdgq1W5qUbhcfN0CK5Lrf0kcl6T0mpi8PWOPizBVPAWKtMG0hrJBWE12svhBUXgz13tAjxH2axMBoTb/i+N3M9rbpTxyty//zQSk2Xc4nAX0wvIWDCn8MpIYJMfB6tQWa4pWVf6bnH3IVd/7h1lJmj/DnW+wuR061GrezhE9U+nY88/CDL1BhCsKnTTwUK31e7o9VD/QQVdldLh+qH/iYyE/BszPNlce+/I/0YrNDa1//kD0GPOsSd1NqIcPnCsAkVujM7FKFSlwb4o8dKZuMGU1etSoRoN6y+LWFMeBd/dBCpPulbC/7BCAOwnQErEaUQpJDsBt18HPaA/fkZJ63Z0UZv+hhMI38V5WxIfzKi5Im8fwvO6DHziwwSzKmri8Dan2hwp1nvtDf8l3UfbtAcSJqoasiw== developerguyn@gmail.com
+
+package_update: true
+
+packages:
+ - runc
+
+runcmd:
+- curl -sLSf https://github.com/containerd/containerd/releases/download/v1.3.5/containerd-1.3.5-linux-amd64.tar.gz > /tmp/containerd.tar.gz && tar -xvf /tmp/containerd.tar.gz -C /usr/local/bin/ --strip-components=1
+- curl -SLfs https://raw.githubusercontent.com/containerd/containerd/v1.3.5/containerd.service | tee /etc/systemd/system/containerd.service
+- systemctl daemon-reload && systemctl start containerd
+- systemctl enable containerd
+- /sbin/sysctl -w net.ipv4.conf.all.forwarding=1
+- mkdir -p /opt/cni/bin
+- curl -sSL https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz | tar -xz -C /opt/cni/bin
+- mkdir -p /go/src/github.com/openfaas/
+- cd /go/src/github.com/openfaas/ && git clone --depth 1 --branch 0.9.10 https://github.com/openfaas/faasd
+- curl -fSLs "https://github.com/openfaas/faasd/releases/download/0.9.10/faasd" --output "/usr/local/bin/faasd" && chmod a+x "/usr/local/bin/faasd"
+- cd /go/src/github.com/openfaas/faasd/ && /usr/local/bin/faasd install
+- systemctl status -l containerd --no-pager
+- journalctl -u faasd-provider --no-pager
+- systemctl status -l faasd-provider --no-pager
+- systemctl status -l faasd --no-pager
+- curl -sSLf https://cli.openfaas.com | sh
+- sleep 60 && journalctl -u faasd --no-pager
+- cat /var/lib/faasd/secrets/basic-auth-password | /usr/local/bin/faas-cli login --password-stdin
