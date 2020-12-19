@@ -11,6 +11,6 @@ functions:
       GO111MODULE: on
     secrets:
       - webhook-secret # your secret goes here
+      - private-key-secret # your private key goes here
     environment:
       APP_ID: "" #your app id goes here
-      PRIVATE_KEY_FILE: "" # "issues-bot-faas.2020-12-12.private-key.pem"

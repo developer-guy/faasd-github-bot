@@ -1,5 +1,28 @@
 # faasd-github-bot
 ![github-issue-bot](images/faasd-issue-bot.png)
+
+Table of Contents
+=================
+
+* [faasd\-github\-bot](#faasd-github-bot)
+* [Table of Contents](#table-of-contents)
+    * [Description](#description)
+    * [Prerequisites](#prerequisites)
+        * [arkade](#arkade)
+        * [inletsctl](#inletsctl)
+        * [inlets\-pro](#inlets-pro)
+        * [multipass](#multipass)
+        * [faas\-cli](#faas-cli)
+    * [Setup exit\-node server on AWS](#setup-exit-node-server-on-aws)
+    * [Setting up a new GitHub App](#setting-up-a-new-github-app)
+    * [Setup faasd](#setup-faasd)
+    * [Build&amp;Deploy function](#builddeploy-function)
+    * [Connect your client to the inlets\-pro server using inletsctl](#connect-your-client-to-the-inlets-pro-server-using-inletsctl)
+    * [Test](#test)
+    * [Cleanup](#cleanup)
+* [References](#references)
+
+
 ### Description
 In this demo, we are going to develop a Github application using Go, then we deploy it as a serverless function to make use of faasd which is a lightweight & portable faas engine.We are also going to do this demo on our local environment, so we should open our function which runs on our local environment to the Internet so Github can send events to our function.In order to do that we use inlets-pro which provides secure TCP/L4 tunnels.
 ### Prerequisites
@@ -154,8 +177,11 @@ The most important parts of this form are "Webhook URL,Webhook Secret and Privat
 * Private Key --> Generate and download private key for your Github Application
 ![private-key](./images/private-keys.png)
 
-> Also, don't forget to request permissions to read & write repository's issues.
+* Also, *do not forget to request permissions to Read & Write the repository's issues.*
 ![issues](./images/permissions.png)
+  
+Finally, we registered our application
+![github-app](./images/app.png)
   
 ### Setup faasd
 In order to get up and running with your own faasd installation on your Mac you can use multipass.
@@ -168,9 +194,10 @@ $ curl -sSLO https://raw.githubusercontent.com/openfaas/faasd/master/cloud-confi
 ```
 Then, we need to update the SSH key to match your own, edit cloud-config.txt:
 ```
-$  ssh-keygen -t rsa -b 4096 -C "developerguyn@gmail.com" -f $PWD/id_rsa
+$ ssh-keygen -t rsa -b 4096 -C "developerguyn@gmail.com" -f $PWD/id_rsa
 ```
-Replace the 2nd line with the contents of ~/.ssh/id_rsa.pub.(ssh_authorized_keys)
+
+Replace the _ssh_authorized_keys::ssh-rsa_ value with the contents of `~/.ssh/id_rsa.pub`, which is defined in `cloud-config.txt`.
 
 Finally, boot the VM
 
@@ -187,12 +214,83 @@ faasd                   Running           192.168.64.25    Ubuntu 20.04 LTS
 
 For more details you can check it out the [link](https://github.com/openfaas/faasd/blob/master/docs/MULTIPASS.md).
 
-### Create function
-
 ### Build&Deploy function
+In this demo, we are going to use Go to develop our Github Application, in order to do that, first, we need to pull the corresponding function template for the Go.
+```bash
+# let's look at the available Go function templates within the OpenFaaS store
+$ faas-cli template store list | grep -i "go"
+go                       openfaas           Classic Golang template
+golang-http              openfaas           Golang HTTP template
+golang-middleware        openfaas           Golang Middleware template
+# We are going to use golang-middleware function template, let's pull it.
+$ faas-cli template store pull golang-middleware
+# Then, create the function itself.
+$ faas-cli new issues-bot --lang golang-middleware --prefix <DOCKER_HUB_ID>
+```
+After created the function, we need to define some arguments, environments and secrets for the function.
+Let's add them:
+```yaml
+  build_args:
+      GO111MODULE: on
+    secrets:
+      - webhook-secret # your secret goes here
+      - private-key-secret # your private key goes here
+    environment:
+      APP_ID: "" #your app id goes here
+```
 
-### Connect to your client to the inlets-pro server using inletsctl
+Finally, we need to create those secrets above with make use of faas-cli.
 
+Let's create our secrets
+```bash
+$ export WEBHOOK_SECRET="sup3rs3cr3t"
+$ faas-cli secret create webhook-secret --from-literal $WEBHOOK_SECRET
+# Download the private key to your host
+$ faas-cli secret create private-key-secret --from-file <path_to_your_pem_file>.pem
+```
+
+We should create a secret in faasd, in order to do that we need to access the Gateway of faasd
+```bash
+$ export IP=$(multipass info faasd --format json| jq '.info.faasd.ipv4[0]' | tr -d '\"')
+# Let's capture the authentication password into a file for use with faas-cli
+$ ssh ubuntu@$IP "sudo cat /var/lib/faasd/secrets/basic-auth-password" > basic-auth-password
+# Login from your laptop (the host)
+$ export OPENFAAS_URL=http://$IP:8080 && \
+cat basic-auth-password | faas-cli login -s
+```
+
+### Connect your client to the inlets-pro server using inletsctl
+We need to establish connection between our client, and the inlets-pro server in order to get events from there
+```bash
+$ export UPSTREAM=$IP # faasd gateway ip, we have already grap the URL above
+$ export PORTS=8080 # faasd gateway port
+$ export LICENSE="eyJhbGciOiJFUzI..."
+
+# Notice that this command is the output of the "inletsctl create" command above
+$ inlets-pro client --url "wss://XX.XXX.XXX.XX:8123/connect" \
+        --token "$TOKEN" \
+        --license "$LICENSE" \
+        --upstream $UPSTREAM \
+        --ports $PORTS
+```
+### Test
+In order to test it we need to install this app to selected repositories. Create a repository called "test-issues-bot", then install this app for it.
+![repository-access](./images/repository-access.png)
+
+Then, create an issue for the repository. You will see the message 
+> "Hello, issue opened by: developer-guy"
+
+![test-issue-bot](./images/test-issue-bot.png)
+![close-issue](./images/close-issue.png)
+
+### Cleanup
+```bash
+$ multipass delete faasd
+$ multipass purge
+$ inletsctl delete --provider ec2 --id "YOUR_INSTANCE_ID" --access-token $AWS_ACCESS_KEY --secret-key $AWS_SECRET_KEY --region eu-central-1
+```
+
+Yaaay 🎉🎉🎉🎉🎉🎉🎉
 # References
 * https://blog.alexellis.io/deploy-serverless-faasd-with-cloud-init/
 * https://www.x-cellent.com/blog/automating-github-with-golang-building-your-own-github-bot/

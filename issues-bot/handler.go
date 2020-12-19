@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -32,16 +33,19 @@ func getAPISecret(secretName string) (secretBytes []byte, err error) {
 func init() {
 	appID, _ := strconv.ParseInt(os.Getenv("APP_ID"), 10, 64)
 
-	privateKeyFile := os.Getenv("PRIVATE_KEY_FILE")
 	webhookSecretBytes, err := getAPISecret("webhook-secret")
-
 	if err != nil {
 		log.Fatalf("could not read webhook secret: %v", err)
 	}
 
 	webhookSecret = string(webhookSecretBytes)
 
-	atr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, privateKeyFile)
+	privateKeyBytes, err := getAPISecret("private-key-secret")
+	if err != nil {
+		log.Fatalf("could not read private key secret: %v", err)
+	}
+
+	atr, err := ghinstallation.NewAppsTransport(http.DefaultTransport, appID, privateKeyBytes)
 	if err != nil {
 		log.Fatalf("error creating GitHub app client: %v", err)
 	}
@@ -90,7 +94,20 @@ func Handle(response http.ResponseWriter, request *http.Request) {
 	case githubWebhook.IssueCommentPayload:
 		log.Println("received issue comment event, action:", payloadType)
 		issueCommentPayload := payload.(githubWebhook.IssueCommentPayload)
-		message = fmt.Sprintf("Hello, issue comment added by: %s", issueCommentPayload.Sender.Login)
+
+		var decision string
+		if strings.HasPrefix(issueCommentPayload.Comment.Body, "/close") {
+			decision = "closed"
+		}
+
+		_, _, err = githubClient.Issues.Edit(context.TODO(), issueCommentPayload.Repository.Owner.Login,
+			issueCommentPayload.Repository.Name, int(issueCommentPayload.Issue.Number), &goGithubV3.IssueRequest{
+				State: &decision,
+			})
+
+		if err != nil {
+			log.Printf("err %+v\n", err)
+		}
 	default:
 		log.Println("missing handler")
 	}
