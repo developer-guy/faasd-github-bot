@@ -3,15 +3,16 @@ package function
 import (
 	"context"
 	"fmt"
-	"github.com/bradleyfalzon/ghinstallation"
-	goGithubV3 "github.com/google/go-github/v32/github"
-	githubWebhook "gopkg.in/go-playground/webhooks.v5/github"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/bradleyfalzon/ghinstallation"
+	goGithubV3 "github.com/google/go-github/v32/github"
+	githubWebhook "gopkg.in/go-playground/webhooks.v5/github"
 )
 
 var (
@@ -50,7 +51,7 @@ func init() {
 		log.Fatalf("error creating GitHub app client: %v", err)
 	}
 
-	installation, _, err := goGithubV3.NewClient(&http.Client{Transport: atr}).Apps.FindUserInstallation(context.TODO(), "developer-guy")
+	installation, _, err := goGithubV3.NewClient(&http.Client{Transport: atr}).Apps.FindUserInstallation(context.TODO(), "utsavanand2")
 	if err != nil {
 		log.Fatalf("error finding organization installation: %v", err)
 	}
