@@ -1,16 +1,17 @@
 version: 1.0
 provider:
   name: openfaas
-  gateway: http://127.0.0.1:8080
+  gateway: https://faasd.utsavanand.com
 functions:
   issues-bot:
     lang: golang-middleware
     handler: ./issues-bot
-    image: devopps/issues-bot:latest # change it with your docker id
+    image: ghcr.io/utsavanand2/faasd-github-bot:latest # change it with your docker id
     build_args:
       GO111MODULE: on
     secrets:
       - webhook-secret # your secret goes here
       - private-key-secret # your private key goes here
     environment:
-      APP_ID: "" #your app id goes here
+      APP_ID: "" # your app id goes here
+      GITHUB_USERNAME: "developer-guy" # replace with your Github Username

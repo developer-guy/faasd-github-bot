@@ -290,6 +290,9 @@ $ multipass purge
 $ inletsctl delete --provider ec2 --id "YOUR_INSTANCE_ID" --access-token $AWS_ACCESS_KEY --secret-key $AWS_SECRET_KEY --region eu-central-1
 ```
 
+### Next steps
+You can run this Bot on a Raspberry Pi, with faasd and TLS with inlets-pro and Caddy! Checkout this [README](./docs/faasd_on_pi.md) to know how.
+
 Yaaay 🎉🎉🎉🎉🎉🎉🎉
 # References
 * https://blog.alexellis.io/deploy-serverless-faasd-with-cloud-init/

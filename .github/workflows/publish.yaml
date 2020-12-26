@@ -1,0 +1,73 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  pulish:
+    runs-on: ubuntu-20.04
+    steps:
+      - 
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Get TAGS
+        id: get_tag
+        run:  |
+          echo "::set-output name=GITHUB_SHA_SHORT::$(echo $GITHUB_SHA | cut -c 1-7)" && \
+          echo ::set-output name=TAG::${GITHUB_REF#refs/tags/}
+      - 
+        name: Set Username/Repo and ImagePrefix as ENV vars
+        run: |
+          echo "USER_REPO"=$(echo "$GITHUB_REPOSITORY" | awk '{print tolower($1)}' | sed -e "s/:refs//") >> $GITHUB_ENV && \
+          echo "IMAGE_PREFIX"=$(echo "ghcr.io/$GITHUB_REPOSITORY" | awk '{print tolower($1)}' | sed -e "s/:refs//") >> $GITHUB_ENV
+      -
+        name: Pull template
+        uses: docker://openfaas/faas-cli:latest-root
+        with:
+          args: template store pull golang-middleware
+      - 
+        name: Run shrinkwrap build
+        uses: docker://openfaas/faas-cli:latest-root
+        with:
+          args: build -f issues-bot.yml --shrinkwrap
+      -
+        name: Login to OpenFaaS Gateway
+        uses: docker://openfaas/faas-cli:latest-root
+        with:
+          args: login -p ${{ secrets.OPENFAAS_GATEWAY_PASSWD }} \
+                      -g ${{ secrets.OPENFAAS_GATEWAY }}
+      -
+        name: Login to DockerHub
+        if: success()
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - 
+        name: Build and Push the OpenFaaS function
+        uses: docker/build-push-action@v2
+        with:
+          context: ./build/issues-bot/
+          file: ./build/issues-bot/Dockerfile
+          platforms: linux/arm/v7
+          push: true
+          labels: org.opencontainers.image.source=https://github.com/${{ env.USER_REPO }}
+          build-args: GO111MODULE=on
+          tags: |
+            ${{ env.IMAGE_PREFIX }}:latest-${{ steps.get_tag.outputs.GITHUB_SHA_SHORT }}
+            ${{ env.IMAGE_PREFIX }}:latest-${{ steps.get_tag.outputs.TAG }}
+      - 
+        name: Deploy the function
+        uses: docker://openfaas/faas-cli:latest-root
+        with:
+          args: |
+            deploy -f issues-bot.yml --tag sha
