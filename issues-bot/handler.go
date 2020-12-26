@@ -33,6 +33,7 @@ func getAPISecret(secretName string) (secretBytes []byte, err error) {
 
 func init() {
 	appID, _ := strconv.ParseInt(os.Getenv("APP_ID"), 10, 64)
+	githubUserName := os.Getenv("GITHUB_USERNAME")
 
 	webhookSecretBytes, err := getAPISecret("webhook-secret")
 	if err != nil {
@@ -51,7 +52,7 @@ func init() {
 		log.Fatalf("error creating GitHub app client: %v", err)
 	}
 
-	installation, _, err := goGithubV3.NewClient(&http.Client{Transport: atr}).Apps.FindUserInstallation(context.TODO(), "utsavanand2")
+	installation, _, err := goGithubV3.NewClient(&http.Client{Transport: atr}).Apps.FindUserInstallation(context.TODO(), githubUserName)
 	if err != nil {
 		log.Fatalf("error finding organization installation: %v", err)
 	}

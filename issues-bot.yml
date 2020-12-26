@@ -13,4 +13,5 @@ functions:
       - webhook-secret # your secret goes here
       - private-key-secret # your private key goes here
     environment:
-      APP_ID: "93702" #your app id goes here
+      APP_ID: "" # your app id goes here
+      GITHUB_USERNAME: "developer-guy" # replace with your Github Username
